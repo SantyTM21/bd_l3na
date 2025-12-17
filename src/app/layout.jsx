@@ -27,7 +27,7 @@ export default async function RootLayout({ children }) {
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <header className='border-b bg-white'>
           <div className='max-w-5xl mx-auto px-4 py-3 flex items-center justify-between'>
-            <Link href='/' className='font-semibold'>
+            <Link href='/' className='font-semibold text-shadow-blue-900'>
               ServiGo
             </Link>
 

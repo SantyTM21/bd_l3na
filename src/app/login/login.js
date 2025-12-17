@@ -3,26 +3,27 @@
 import { getConnection, sql } from '@/lib/db'
 import { setUserCookie, clearUserCookie } from '@/lib/auth'
 import { redirect } from 'next/navigation'
+import bcrypt from 'bcryptjs'
 
 export async function login(formData) {
-    const correo = formData.get('correo')
-    const password = formData.get('password')
+    const correo = String(formData.get('correo') || '').trim().toLowerCase()
+    const password = String(formData.get('password') || '')
+
+    if (!correo || !password) redirect('/login?error=Datos+incompletos')
 
     const pool = await getConnection()
     const result = await pool
         .request()
         .input('Correo', sql.VarChar(100), correo)
-        .input('Password', sql.VarChar(200), password)
-        .query(`
-            SELECT IdUsuario, Nombre, Apellido, Correo
-            FROM Usuarios
-            WHERE Correo = @Correo AND Password = @Password AND Estado = 1
-        `)
+        .execute('dbo.sp_LoginGetUser')
 
-    const user = result.recordset[0]
-    if (!user) {
-        redirect('/login?error=Credenciales+invalidas')
-    }
+    const user = result.recordset?.[0]
+    if (!user || !user.Estado) redirect('/login?error=Credenciales+invalidas')
+
+    const ok = await bcrypt.compare(password, user.PasswordHash)
+    if (!ok) redirect('/login?error=Credenciales+invalidas')
+
+
     await setUserCookie(user.IdUsuario)
     redirect('/profile')
 }

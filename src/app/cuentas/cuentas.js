@@ -22,27 +22,31 @@ export async function listCuentas() {
 export async function createCuenta(formData) {
     const user = await getCurrentUser()
     if (!user) return
+
     const nombreBanco = formData.get('nombreBanco')
     const numeroCuenta = formData.get('numeroCuenta')
     const tipoCuenta = formData.get('tipoCuenta')
     const dueno = formData.get('dueño') || null
+    const saldoInicial = parseFloat(formData.get('saldoInicial') || '0') || 0
+
     const pool = await getConnection()
-    await pool
-        .request()
+    await pool.request()
         .input('NombreBanco', sql.VarChar(100), nombreBanco)
         .input('NumeroCuenta', sql.VarChar(30), numeroCuenta)
         .input('TipoCuenta', sql.VarChar(20), tipoCuenta)
         .input('Estado', sql.Bit, 1)
         .input('Dueño', sql.VarChar(100), dueno)
+        .input('Saldo', sql.Decimal(10, 2), saldoInicial)
         .input('IdUsuario', sql.Int, user.IdUsuario)
         .query(`
-            INSERT INTO CuentasBanco (NombreBanco, NumeroCuenta, TipoCuenta, Estado, Dueño, IdUsuario)
-            VALUES (@NombreBanco, @NumeroCuenta, @TipoCuenta, @Estado, @Dueño, @IdUsuario)
-        `)
+      INSERT INTO CuentasBanco (NombreBanco, NumeroCuenta, TipoCuenta, Estado, Dueño, Saldo, IdUsuario)
+      VALUES (@NombreBanco, @NumeroCuenta, @TipoCuenta, @Estado, @Dueño, @Saldo, @IdUsuario)
+    `)
 
     revalidatePath('/cuentas')
     redirect('/cuentas')
 }
+
 
 export async function updateCuenta(formData) {
     const user = await getCurrentUser()
