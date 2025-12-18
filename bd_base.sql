@@ -1,5 +1,69 @@
+/* ============================================================
+   RESET (borra objetos si existen) - para correr 1 sola vez
+   ============================================================ */
+SET NOCOUNT ON;
+GO
+
+-- Triggers
+IF OBJECT_ID('dbo.trg_Roles_SetAudit','TR') IS NOT NULL DROP TRIGGER dbo.trg_Roles_SetAudit;
+IF OBJECT_ID('dbo.trg_Usuarios_SetAudit','TR') IS NOT NULL DROP TRIGGER dbo.trg_Usuarios_SetAudit;
+IF OBJECT_ID('dbo.trg_CuentasBanco_SetAudit','TR') IS NOT NULL DROP TRIGGER dbo.trg_CuentasBanco_SetAudit;
+IF OBJECT_ID('dbo.trg_Servicios_SetAudit','TR') IS NOT NULL DROP TRIGGER dbo.trg_Servicios_SetAudit;
+IF OBJECT_ID('dbo.trg_Pagos_SetAudit','TR') IS NOT NULL DROP TRIGGER dbo.trg_Pagos_SetAudit;
+IF OBJECT_ID('dbo.trg_Transferencias_SetAudit','TR') IS NOT NULL DROP TRIGGER dbo.trg_Transferencias_SetAudit;
+IF OBJECT_ID('dbo.trg_SetFechaPagoServicio','TR') IS NOT NULL DROP TRIGGER dbo.trg_SetFechaPagoServicio;
+IF OBJECT_ID('dbo.trg_ActualizarSaldoPago','TR') IS NOT NULL DROP TRIGGER dbo.trg_ActualizarSaldoPago;
+IF OBJECT_ID('dbo.trg_ActualizarSaldoTransferencia','TR') IS NOT NULL DROP TRIGGER dbo.trg_ActualizarSaldoTransferencia;
+IF OBJECT_ID('dbo.trg_NoSaldoNegativoCuentasBanco','TR') IS NOT NULL DROP TRIGGER dbo.trg_NoSaldoNegativoCuentasBanco;
+IF OBJECT_ID('dbo.trg_DesactivarServiciosUsuario','TR') IS NOT NULL DROP TRIGGER dbo.trg_DesactivarServiciosUsuario;
+GO
+
+-- Views
+DROP VIEW IF EXISTS dbo.vw_ServiciosUsuarios;
+DROP VIEW IF EXISTS dbo.vw_PagosServicios;
+DROP VIEW IF EXISTS dbo.vw_TransferenciasCuentas;
+DROP VIEW IF EXISTS dbo.vw_CuentasBanco;
+DROP VIEW IF EXISTS dbo.vw_UsuariosActivosResumen;
+DROP VIEW IF EXISTS dbo.vw_SaldoPorUsuario;
+DROP VIEW IF EXISTS dbo.vw_Admin_KPIs;
+DROP VIEW IF EXISTS dbo.vw_Admin_UsuariosResumen;
+DROP VIEW IF EXISTS dbo.vw_Admin_RankingUsuariosPagos;
+DROP VIEW IF EXISTS dbo.vw_Admin_SaldoPorBanco;
+DROP VIEW IF EXISTS dbo.vw_Admin_ServiciosResumen;
+DROP VIEW IF EXISTS dbo.vw_Admin_PagosPorMetodo;
+DROP VIEW IF EXISTS dbo.vw_Admin_TransferenciasPorBanco;
+GO
+
+-- Procedures
+DROP PROCEDURE IF EXISTS dbo.sp_RegistrarUsuario;
+DROP PROCEDURE IF EXISTS dbo.sp_LoginGetUser;
+DROP PROCEDURE IF EXISTS dbo.sp_ActualizarPerfilUsuario;
+DROP PROCEDURE IF EXISTS dbo.sp_InsertarServicio;
+DROP PROCEDURE IF EXISTS dbo.sp_InsertarPago;
+DROP PROCEDURE IF EXISTS dbo.sp_InsertarTransferencia;
+DROP PROCEDURE IF EXISTS dbo.sp_ActualizarServicio;
+DROP PROCEDURE IF EXISTS dbo.sp_ActualizarPago;
+DROP PROCEDURE IF EXISTS dbo.sp_ActualizarTransferencia;
+DROP PROCEDURE IF EXISTS dbo.sp_EliminarServicio;
+DROP PROCEDURE IF EXISTS dbo.sp_EliminarPago;
+DROP PROCEDURE IF EXISTS dbo.sp_EliminarTransferencia;
+DROP PROCEDURE IF EXISTS dbo.sp_EliminarUsuario;
+GO
+
+-- Tables (hijas primero)
+IF OBJECT_ID('dbo.Transferencias','U') IS NOT NULL DROP TABLE dbo.Transferencias;
+IF OBJECT_ID('dbo.Pagos','U') IS NOT NULL DROP TABLE dbo.Pagos;
+IF OBJECT_ID('dbo.Servicios','U') IS NOT NULL DROP TABLE dbo.Servicios;
+IF OBJECT_ID('dbo.CuentasBanco','U') IS NOT NULL DROP TABLE dbo.CuentasBanco;
+IF OBJECT_ID('dbo.Usuarios','U') IS NOT NULL DROP TABLE dbo.Usuarios;
+IF OBJECT_ID('dbo.Roles','U') IS NOT NULL DROP TABLE dbo.Roles;
+GO
+
+/* ============================================================
+   TABLAS
+   ============================================================ */
 CREATE TABLE dbo.Roles (
-    IdRol INT PRIMARY KEY IDENTITY(1,1),
+    IdRol INT IDENTITY(1,1) PRIMARY KEY,
     Nombre VARCHAR(50) NOT NULL,
     Descripcion VARCHAR(200),
     FechaRegistro DATETIME NOT NULL DEFAULT GETDATE(),
@@ -8,12 +72,12 @@ CREATE TABLE dbo.Roles (
 GO
 
 CREATE TABLE dbo.Usuarios (
-    IdUsuario INT PRIMARY KEY IDENTITY(1,1),
+    IdUsuario INT IDENTITY(1,1) PRIMARY KEY,
     Cedula VARCHAR(10) NOT NULL UNIQUE,
     Nombre VARCHAR(50) NOT NULL,
     Apellido VARCHAR(50) NOT NULL,
     Correo VARCHAR(100) NOT NULL UNIQUE,
-    Password VARCHAR(200) NOT NULL,
+    [Password] VARCHAR(200) NOT NULL,
     Estado BIT NOT NULL DEFAULT 1,
     Celular VARCHAR(15),
     FechaNacimiento DATE,
@@ -24,12 +88,12 @@ CREATE TABLE dbo.Usuarios (
 GO
 
 CREATE TABLE dbo.CuentasBanco (
-    IdCuentaBanco INT PRIMARY KEY IDENTITY(1,1),
+    IdCuentaBanco INT IDENTITY(1,1) PRIMARY KEY,
     NombreBanco VARCHAR(100) NOT NULL,
     NumeroCuenta VARCHAR(30) NOT NULL UNIQUE,
     TipoCuenta VARCHAR(20) NOT NULL,
     Estado BIT NOT NULL DEFAULT 1,
-    Dueño VARCHAR(100),
+    Dueno VARCHAR(100), -- antes: Dueño
     Saldo DECIMAL(10,2) NOT NULL DEFAULT 0,
     FechaRegistro DATETIME NOT NULL DEFAULT GETDATE(),
     FechaActualizacion DATETIME NULL,
@@ -38,7 +102,7 @@ CREATE TABLE dbo.CuentasBanco (
 GO
 
 CREATE TABLE dbo.Servicios (
-    IdServicio INT PRIMARY KEY IDENTITY(1,1),
+    IdServicio INT IDENTITY(1,1) PRIMARY KEY,
     Nombre VARCHAR(100) NOT NULL,
     Descripcion VARCHAR(200),
     NumeroCuenta VARCHAR(30),
@@ -54,7 +118,7 @@ CREATE TABLE dbo.Servicios (
 GO
 
 CREATE TABLE dbo.Pagos (
-    IdPago INT PRIMARY KEY IDENTITY(1,1),
+    IdPago INT IDENTITY(1,1) PRIMARY KEY,
     IdServicio INT NOT NULL,
     Monto DECIMAL(10,2) NOT NULL,
     FechaPago DATE NULL,
@@ -67,7 +131,7 @@ CREATE TABLE dbo.Pagos (
 GO
 
 CREATE TABLE dbo.Transferencias (
-    IdTransferencia INT PRIMARY KEY IDENTITY(1,1),
+    IdTransferencia INT IDENTITY(1,1) PRIMARY KEY,
     IdCuentaBanco INT NOT NULL,
     Fecha DATETIME NOT NULL DEFAULT GETDATE(),
     TipoTransferencia VARCHAR(10) NOT NULL,
@@ -79,6 +143,9 @@ CREATE TABLE dbo.Transferencias (
 );
 GO
 
+/* ============================================================
+   CHECKS
+   ============================================================ */
 ALTER TABLE dbo.Usuarios
 ADD CONSTRAINT CHK_Usuarios_Estado CHECK (Estado IN (0,1));
 GO
@@ -99,48 +166,54 @@ ALTER TABLE dbo.Transferencias
 ADD CONSTRAINT CHK_Transferencias_Tipo CHECK (TipoTransferencia IN ('Ingreso', 'Egreso'));
 GO
 
+/* ============================================================
+   FOREIGN KEYS (sin cascade paths)
+   ============================================================ */
 ALTER TABLE dbo.Usuarios
 ADD CONSTRAINT FK_Usuarios_Roles
 FOREIGN KEY (IdRol) REFERENCES dbo.Roles(IdRol)
-ON DELETE CASCADE
-ON UPDATE CASCADE;
+ON DELETE NO ACTION
+ON UPDATE NO ACTION;
 GO
 
 ALTER TABLE dbo.CuentasBanco
 ADD CONSTRAINT FK_CuentasBanco_Usuarios
 FOREIGN KEY (IdUsuario) REFERENCES dbo.Usuarios(IdUsuario)
-ON DELETE CASCADE
-ON UPDATE CASCADE;
+ON DELETE NO ACTION
+ON UPDATE NO ACTION;
 GO
 
 ALTER TABLE dbo.Servicios
 ADD CONSTRAINT FK_Servicios_Usuarios
 FOREIGN KEY (IdUsuario) REFERENCES dbo.Usuarios(IdUsuario)
-ON DELETE CASCADE
-ON UPDATE CASCADE;
+ON DELETE NO ACTION
+ON UPDATE NO ACTION;
 GO
 
 ALTER TABLE dbo.Pagos
 ADD CONSTRAINT FK_Pagos_CuentasBanco
 FOREIGN KEY (IdCuentaBanco) REFERENCES dbo.CuentasBanco(IdCuentaBanco)
 ON DELETE SET NULL
-ON UPDATE CASCADE;
+ON UPDATE NO ACTION;
 GO
 
 ALTER TABLE dbo.Transferencias
 ADD CONSTRAINT FK_Transferencias_CuentasBanco
 FOREIGN KEY (IdCuentaBanco) REFERENCES dbo.CuentasBanco(IdCuentaBanco)
 ON DELETE CASCADE
-ON UPDATE CASCADE;
+ON UPDATE NO ACTION;
 GO
 
 ALTER TABLE dbo.Pagos
 ADD CONSTRAINT FK_Pagos_Servicios
 FOREIGN KEY (IdServicio) REFERENCES dbo.Servicios(IdServicio)
 ON DELETE CASCADE
-ON UPDATE CASCADE;
+ON UPDATE NO ACTION;
 GO
 
+/* ============================================================
+   INSERTS
+   ============================================================ */
 INSERT INTO dbo.Roles (Nombre, Descripcion) VALUES
 ('Administrador', 'Acceso total al sistema'),
 ('Usuario', 'Acceso limitado a sus servicios'),
@@ -154,7 +227,7 @@ INSERT INTO dbo.Roles (Nombre, Descripcion) VALUES
 ('Invitado', 'Acceso temporal');
 GO
 
-INSERT INTO dbo.Usuarios (Cedula, Nombre, Apellido, Correo, FechaNacimiento, Password, Estado, IdRol) VALUES
+INSERT INTO dbo.Usuarios (Cedula, Nombre, Apellido, Correo, FechaNacimiento, [Password], Estado, IdRol) VALUES
 ('1712345678','Priscila','Quiñonez','priscila@email.com','2000-05-10','clave123',1,1),
 ('0803456789','Charly','Paez','charly@email.com','1995-08-22','segura456',1,2),
 ('0501923456','Anabell','Montero','anabell@email.com','1998-03-15','pass789',1,2),
@@ -167,7 +240,7 @@ INSERT INTO dbo.Usuarios (Cedula, Nombre, Apellido, Correo, FechaNacimiento, Pas
 ('0302468135','Piter','Sarmiento','piter@email.com','1993-06-20','clave159',1,2);
 GO
 
-INSERT INTO dbo.CuentasBanco (NombreBanco, NumeroCuenta, TipoCuenta, Dueño, IdUsuario) VALUES
+INSERT INTO dbo.CuentasBanco (NombreBanco, NumeroCuenta, TipoCuenta, Dueno, IdUsuario) VALUES
 ('Banco Pichincha','7421-3598-6123-0846','Ahorros','Priscila Quiñonez',1),
 ('Banco Guayaquil','5198-2467-1359-8024','Corriente','Charly Paez',2),
 ('Banco Produbanco','6839-2715-9842-0637','Ahorros','Anabell Montero',3),
@@ -231,6 +304,9 @@ INSERT INTO dbo.Transferencias (IdCuentaBanco, TipoTransferencia, Monto, Destina
 VALUES (1,'Egreso',150.00,'HBO Max','Transferencia automática de suscripción');
 GO
 
+/* ============================================================
+   VIEWS
+   ============================================================ */
 CREATE VIEW dbo.vw_ServiciosUsuarios AS
 SELECT
     s.IdServicio,
@@ -265,7 +341,7 @@ SELECT
     t.Destinatario,
     cb.NombreBanco,
     cb.NumeroCuenta,
-    cb.Dueño
+    cb.Dueno
 FROM dbo.Transferencias t
 INNER JOIN dbo.CuentasBanco cb ON t.IdCuentaBanco = cb.IdCuentaBanco;
 GO
@@ -277,7 +353,7 @@ SELECT
     c.NumeroCuenta,
     c.TipoCuenta,
     c.Estado,
-    c.Dueño,
+    c.Dueno,
     c.Saldo,
     c.FechaRegistro,
     u.Nombre + ' ' + u.Apellido AS Usuario
@@ -403,13 +479,15 @@ JOIN dbo.CuentasBanco cb ON cb.IdCuentaBanco = t.IdCuentaBanco
 GROUP BY cb.NombreBanco, t.TipoTransferencia;
 GO
 
+/* ============================================================
+   TRIGGERS
+   ============================================================ */
 CREATE OR ALTER TRIGGER dbo.trg_Roles_SetAudit ON dbo.Roles
 AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE r
-       SET r.FechaActualizacion = GETDATE()
+    UPDATE r SET r.FechaActualizacion = GETDATE()
     FROM dbo.Roles r
     INNER JOIN inserted i ON i.IdRol = r.IdRol;
 END;
@@ -420,8 +498,7 @@ AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE u
-       SET u.FechaActualizacion = GETDATE()
+    UPDATE u SET u.FechaActualizacion = GETDATE()
     FROM dbo.Usuarios u
     INNER JOIN inserted i ON i.IdUsuario = u.IdUsuario;
 END;
@@ -432,8 +509,7 @@ AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE c
-       SET c.FechaActualizacion = GETDATE()
+    UPDATE c SET c.FechaActualizacion = GETDATE()
     FROM dbo.CuentasBanco c
     INNER JOIN inserted i ON i.IdCuentaBanco = c.IdCuentaBanco;
 END;
@@ -444,8 +520,7 @@ AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE s
-       SET s.FechaActualizacion = GETDATE()
+    UPDATE s SET s.FechaActualizacion = GETDATE()
     FROM dbo.Servicios s
     INNER JOIN inserted i ON i.IdServicio = s.IdServicio;
 END;
@@ -456,8 +531,7 @@ AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE p
-       SET p.FechaActualizacion = GETDATE()
+    UPDATE p SET p.FechaActualizacion = GETDATE()
     FROM dbo.Pagos p
     INNER JOIN inserted i ON i.IdPago = p.IdPago;
 END;
@@ -468,8 +542,7 @@ AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE t
-       SET t.FechaActualizacion = GETDATE()
+    UPDATE t SET t.FechaActualizacion = GETDATE()
     FROM dbo.Transferencias t
     INNER JOIN inserted i ON i.IdTransferencia = t.IdTransferencia;
 END;
@@ -481,14 +554,12 @@ AFTER INSERT
 AS
 BEGIN
     SET NOCOUNT ON;
-
     UPDATE s
-       SET s.FechaPago =
-            CASE
-                WHEN s.TipoPeriodo = 'Mensual' THEN CONVERT(date, DATEADD(DAY, 30, s.FechaRegistro))
-                WHEN s.TipoPeriodo = 'Anual'   THEN CONVERT(date, DATEADD(DAY, 365, s.FechaRegistro))
-                ELSE s.FechaPago
-            END
+       SET s.FechaPago = CASE
+            WHEN s.TipoPeriodo = 'Mensual' THEN CONVERT(date, DATEADD(DAY, 30, s.FechaRegistro))
+            WHEN s.TipoPeriodo = 'Anual'   THEN CONVERT(date, DATEADD(DAY, 365, s.FechaRegistro))
+            ELSE s.FechaPago
+       END
     FROM dbo.Servicios s
     INNER JOIN inserted i ON i.IdServicio = s.IdServicio;
 END;
@@ -500,7 +571,6 @@ AFTER INSERT
 AS
 BEGIN
     SET NOCOUNT ON;
-
     ;WITH x AS (
         SELECT IdCuentaBanco, SUM(Monto) AS TotalMonto
         FROM inserted
@@ -520,7 +590,6 @@ AFTER INSERT
 AS
 BEGIN
     SET NOCOUNT ON;
-
     ;WITH ing AS (
         SELECT IdCuentaBanco, SUM(Monto) AS M
         FROM inserted
@@ -548,7 +617,6 @@ AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-
     IF EXISTS (SELECT 1 FROM inserted WHERE Saldo < 0)
     BEGIN
         RAISERROR('El saldo de la cuenta no puede ser negativo.', 16, 1);
@@ -564,7 +632,6 @@ AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-
     UPDATE s
        SET s.Estado = 0,
            s.EsAutomatico = 0
@@ -575,6 +642,9 @@ BEGIN
 END;
 GO
 
+/* ============================================================
+   STORED PROCEDURES
+   ============================================================ */
 CREATE OR ALTER PROCEDURE dbo.sp_RegistrarUsuario
   @Cedula VARCHAR(10),
   @Nombre VARCHAR(50),
@@ -593,7 +663,7 @@ BEGIN
   IF EXISTS (SELECT 1 FROM dbo.Usuarios WHERE Correo = @Correo)
     THROW 50002, 'Correo ya registrado', 1;
 
-  INSERT INTO dbo.Usuarios (Cedula, Nombre, Apellido, Correo, Password, FechaNacimiento, Estado, IdRol)
+  INSERT INTO dbo.Usuarios (Cedula, Nombre, Apellido, Correo, [Password], FechaNacimiento, Estado, IdRol)
   OUTPUT INSERTED.IdUsuario
   VALUES (@Cedula, @Nombre, @Apellido, @Correo, @PasswordHash, @FechaNacimiento, 1, @IdRol);
 END;
@@ -607,7 +677,7 @@ BEGIN
 
   SELECT TOP 1
     IdUsuario,
-    Password AS PasswordHash,
+    [Password] AS PasswordHash,
     Estado
   FROM dbo.Usuarios
   WHERE Correo = @Correo;
@@ -624,7 +694,6 @@ AS
 BEGIN
   SET NOCOUNT ON;
 
-  -- Normaliza vacíos
   IF (@Celular = '') SET @Celular = NULL;
 
   UPDATE dbo.Usuarios
@@ -639,7 +708,7 @@ BEGIN
 END;
 GO
 
-CREATE PROCEDURE dbo.sp_InsertarServicio
+CREATE OR ALTER PROCEDURE dbo.sp_InsertarServicio
     @Nombre VARCHAR(100),
     @Descripcion VARCHAR(200),
     @NumeroCuenta VARCHAR(30),
@@ -648,12 +717,13 @@ CREATE PROCEDURE dbo.sp_InsertarServicio
     @Precio DECIMAL(10,2)
 AS
 BEGIN
+    SET NOCOUNT ON;
     INSERT INTO dbo.Servicios (Nombre, Descripcion, NumeroCuenta, IdUsuario, TipoPeriodo, Estado, Precio, FechaRegistro)
     VALUES (@Nombre, @Descripcion, @NumeroCuenta, @IdUsuario, @TipoPeriodo, 1, @Precio, GETDATE());
 END;
 GO
 
-CREATE PROCEDURE dbo.sp_InsertarPago
+CREATE OR ALTER PROCEDURE dbo.sp_InsertarPago
     @IdServicio INT,
     @Monto DECIMAL(10,2),
     @MetodoPago VARCHAR(50),
@@ -661,12 +731,13 @@ CREATE PROCEDURE dbo.sp_InsertarPago
     @Comentario VARCHAR(200) = NULL
 AS
 BEGIN
+    SET NOCOUNT ON;
     INSERT INTO dbo.Pagos (IdServicio, Monto, MetodoPago, IdCuentaBanco, FechaPago, Comentario)
     VALUES (@IdServicio, @Monto, @MetodoPago, @IdCuentaBanco, GETDATE(), @Comentario);
 END;
 GO
 
-CREATE PROCEDURE dbo.sp_InsertarTransferencia
+CREATE OR ALTER PROCEDURE dbo.sp_InsertarTransferencia
     @IdCuentaBanco INT,
     @TipoTransferencia VARCHAR(10),
     @Monto DECIMAL(10,2),
@@ -674,12 +745,13 @@ CREATE PROCEDURE dbo.sp_InsertarTransferencia
     @Comentario VARCHAR(200) = NULL
 AS
 BEGIN
+    SET NOCOUNT ON;
     INSERT INTO dbo.Transferencias (IdCuentaBanco, TipoTransferencia, Monto, Destinatario, Comentario, Fecha)
     VALUES (@IdCuentaBanco, @TipoTransferencia, @Monto, @Destinatario, @Comentario, GETDATE());
 END;
 GO
 
-CREATE PROCEDURE dbo.sp_ActualizarServicio
+CREATE OR ALTER PROCEDURE dbo.sp_ActualizarServicio
     @IdServicio INT,
     @Nombre VARCHAR(100),
     @Descripcion VARCHAR(200),
@@ -690,6 +762,7 @@ CREATE PROCEDURE dbo.sp_ActualizarServicio
     @EsAutomatico BIT
 AS
 BEGIN
+    SET NOCOUNT ON;
     UPDATE dbo.Servicios
     SET Nombre = @Nombre,
         Descripcion = @Descripcion,
@@ -702,7 +775,7 @@ BEGIN
 END;
 GO
 
-CREATE PROCEDURE dbo.sp_ActualizarPago
+CREATE OR ALTER PROCEDURE dbo.sp_ActualizarPago
     @IdPago INT,
     @Monto DECIMAL(10,2),
     @MetodoPago VARCHAR(50),
@@ -710,6 +783,7 @@ CREATE PROCEDURE dbo.sp_ActualizarPago
     @IdCuentaBanco INT = NULL
 AS
 BEGIN
+    SET NOCOUNT ON;
     UPDATE dbo.Pagos
     SET Monto = @Monto,
         MetodoPago = @MetodoPago,
@@ -719,7 +793,7 @@ BEGIN
 END;
 GO
 
-CREATE PROCEDURE dbo.sp_ActualizarTransferencia
+CREATE OR ALTER PROCEDURE dbo.sp_ActualizarTransferencia
     @IdTransferencia INT,
     @TipoTransferencia VARCHAR(10),
     @Monto DECIMAL(10,2),
@@ -727,6 +801,7 @@ CREATE PROCEDURE dbo.sp_ActualizarTransferencia
     @Comentario VARCHAR(200)
 AS
 BEGIN
+    SET NOCOUNT ON;
     UPDATE dbo.Transferencias
     SET TipoTransferencia = @TipoTransferencia,
         Monto = @Monto,
@@ -736,30 +811,34 @@ BEGIN
 END;
 GO
 
-CREATE PROCEDURE dbo.sp_EliminarServicio @IdServicio INT
+CREATE OR ALTER PROCEDURE dbo.sp_EliminarServicio @IdServicio INT
 AS
 BEGIN
+    SET NOCOUNT ON;
     DELETE FROM dbo.Servicios WHERE IdServicio = @IdServicio;
 END;
 GO
 
-CREATE PROCEDURE dbo.sp_EliminarPago @IdPago INT
+CREATE OR ALTER PROCEDURE dbo.sp_EliminarPago @IdPago INT
 AS
 BEGIN
+    SET NOCOUNT ON;
     DELETE FROM dbo.Pagos WHERE IdPago = @IdPago;
 END;
 GO
 
-CREATE PROCEDURE dbo.sp_EliminarTransferencia @IdTransferencia INT
+CREATE OR ALTER PROCEDURE dbo.sp_EliminarTransferencia @IdTransferencia INT
 AS
 BEGIN
+    SET NOCOUNT ON;
     DELETE FROM dbo.Transferencias WHERE IdTransferencia = @IdTransferencia;
 END;
 GO
 
-CREATE PROCEDURE dbo.sp_EliminarUsuario @IdUsuario INT
+CREATE OR ALTER PROCEDURE dbo.sp_EliminarUsuario @IdUsuario INT
 AS
 BEGIN
+    SET NOCOUNT ON;
     DELETE FROM dbo.Usuarios WHERE IdUsuario = @IdUsuario;
 END;
 GO
